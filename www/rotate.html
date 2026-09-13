@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>轮换显示</title>
+<style>
+ *{box-sizing:border-box} body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:#f5f6f8;color:#222}
+ header{background:#2b6cff;color:#fff;padding:14px 16px;font-size:17px;font-weight:600;display:flex;align-items:center;justify-content:space-between}
+ header a{color:#fff;text-decoration:none;font-size:13px;opacity:.92}
+ .wrap{max-width:720px;margin:0 auto;padding:14px}
+ .card{background:#fff;border:1px solid #e6e8ec;border-radius:12px;padding:12px 14px;margin-top:12px}
+ .card h3{margin:0 0 8px;font-size:15px;color:#2b6cff}
+ .row{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;align-items:center}
+ label.chk{display:flex;align-items:center;gap:6px;font-size:15px;background:#f2f5ff;border:1px solid #d6e0ff;border-radius:10px;padding:8px 12px;cursor:pointer}
+ input[type=checkbox]{width:18px;height:18px}
+ button{border:0;border-radius:10px;padding:10px 16px;font-size:14px;background:#2b6cff;color:#fff;cursor:pointer}
+ .btnw{background:#fff;color:#2b6cff;border:1px solid #2b6cff}
+ .btnr{background:#ff5b5b}
+ input[type=number],input[type=text]{padding:9px;border:1px solid #ccd;border-radius:8px;font-size:14px}
+ .msg{color:#0a9d6e;font-size:13px;min-height:18px;margin-top:8px}
+ .tip{font-size:12px;color:#8a93a2;margin-top:6px}
+</style></head>
+<body onload="init()">
+<header>轮换显示 <a href="/">← 返回控制台</a></header>
+<div class="wrap">
+ <div class="card">
+  <h3>选择要轮换显示的内容（每项单独设置显示时长）</h3>
+  <div class="row" style="align-items:center">
+   <label class="chk" style="min-width:210px"><input type="checkbox" id="c_clock" checked> 时间（时钟）</label>
+   <span style="font-size:14px">显示</span>
+   <input type="number" id="d_clock" value="10" min="1" max="600" style="width:64px"> 秒
+  </div>
+  <div class="row" style="align-items:center">
+   <label class="chk" style="min-width:210px"><input type="checkbox" id="c_weather" checked> 天气</label>
+   <span style="font-size:14px">显示</span>
+   <input type="number" id="d_weather" value="2" min="1" max="600" style="width:64px"> 秒
+  </div>
+  <div class="row" style="align-items:center">
+   <label class="chk" style="min-width:210px"><input type="checkbox" id="c_date"> 日期（年月日+星期）</label>
+   <span style="font-size:14px">显示</span>
+   <input type="number" id="d_date" value="2" min="1" max="600" style="width:64px"> 秒
+  </div>
+  <div class="row" style="align-items:center">
+   <span style="font-size:14px">天气城市</span>
+   <input type="text" id="city" value="北京" style="width:140px">
+  </div>
+  <div class="row" style="align-items:center">
+   <label class="chk"><input type="checkbox" id="c_sound"> 切换时播放提示音</label>
+   <span style="font-size:14px;margin-left:12px">提示音音量</span>
+   <input type="number" id="vol" value="80" min="0" max="100" style="width:64px"> %
+  </div>
+  <div class="row">
+   <button onclick="startRotate()">开始轮换</button>
+   <button class="btnw" onclick="resetCfg()">恢复默认</button>
+   <button class="btnr" onclick="stopRotate()">停止并显示词典笔</button>
+  </div>
+  <div id="rmsg" class="msg"></div>
+  <div class="tip">勾选哪些项就轮换哪些项（勾 1 项则固定显示该项）。每项可单独设置“显示多少秒”：时间默认 10 秒、天气/日期默认 2 秒，均可调。天气需设备联网（已验证可出网）。提示音音量 0~100 可调。配置会自动保存，下次进入本页显示上次设置。</div>
+ </div>
+</div>
+<script>
+function setMsg(s){var m=document.getElementById('rmsg');m.textContent=s;setTimeout(function(){m.textContent='';},5000);}
+async function startRotate(){
+  var items=[], durs=[];
+  function add(cid,did,key){
+    if(document.getElementById(cid).checked){
+      items.push(key);
+      var v=parseInt(document.getElementById(did).value,10);
+      if(!v||v<1) v=(key==='clock'?10:2);
+      durs.push(v);
+    }
+  }
+  add('c_clock','d_clock','clock');
+  add('c_weather','d_weather','weather');
+  add('c_date','d_date','date');
+  if(items.length===0){setMsg('请至少勾选一项');return;}
+  var body='screen=rotate'
+    +'&rotate_items='+encodeURIComponent(items.join(','))
+    +'&rotate_dur='+encodeURIComponent(durs.join(','))
+    +'&rotate_sound='+encodeURIComponent(document.getElementById('c_sound').checked?'1':'0')
+    +'&rotate_sound_vol='+encodeURIComponent(document.getElementById('vol').value)
+    +'&weather_city='+encodeURIComponent(document.getElementById('city').value);
+  try{
+    var r=await fetch('/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body});
+    setMsg(await r.text());
+  }catch(e){setMsg('请求失败');}
+}
+async function stopRotate(){
+  try{
+    var r=await fetch('/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'screen=restore'});
+    setMsg(await r.text());
+  }catch(e){setMsg('请求失败');}
+}
+function resetCfg(){
+  document.getElementById('c_clock').checked=true;
+  document.getElementById('c_weather').checked=true;
+  document.getElementById('c_date').checked=false;
+  document.getElementById('d_clock').value=10;
+  document.getElementById('d_weather').value=2;
+  document.getElementById('d_date').value=2;
+  document.getElementById('city').value='北京';
+  document.getElementById('c_sound').checked=false;
+  document.getElementById('vol').value=80;
+  setMsg('已恢复默认（点“开始轮换”才会保存）');
+}
+async function init(){
+  try{
+    var r=await fetch('/rotate_config',{cache:'no-store'});
+    var c=await r.json();
+    if(c.clock!==undefined) document.getElementById('c_clock').checked=!!c.clock;
+    if(c.weather!==undefined) document.getElementById('c_weather').checked=!!c.weather;
+    if(c.date!==undefined) document.getElementById('c_date').checked=!!c.date;
+    if(c.d_clock) document.getElementById('d_clock').value=c.d_clock;
+    if(c.d_weather) document.getElementById('d_weather').value=c.d_weather;
+    if(c.d_date) document.getElementById('d_date').value=c.d_date;
+    if(c.city) document.getElementById('city').value=c.city;
+    if(c.sound!==undefined) document.getElementById('c_sound').checked=!!c.sound;
+    if(c.vol!==undefined) document.getElementById('vol').value=c.vol;
+  }catch(e){ /* 用页面默认值 */ }
+}
+</script>
+</body>
+</html>

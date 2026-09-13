@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>计时器</title>
+<style>
+ *{box-sizing:border-box} body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:#f5f6f8;color:#222}
+ header{background:#2b6cff;color:#fff;padding:14px 16px;font-size:17px;font-weight:600}
+ .wrap{max-width:560px;margin:14px auto;padding:0 12px}
+ .card{background:#fff;border-radius:12px;padding:14px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+ h3{margin:0 0 10px;font-size:16px}
+ .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
+ input[type=text],input[type=number],textarea,select{padding:9px;border:1px solid #ccd;border-radius:8px;font-size:14px}
+ input[type=text],textarea{flex:1;min-width:160px}
+ textarea{min-height:64px;resize:vertical}
+ button{background:#2b6cff;color:#fff;border:0;border-radius:8px;padding:9px 14px;font-size:14px;cursor:pointer}
+ button.btnw{background:#eef2ff;color:#2b6cff}
+ button.btnr{background:#e0392b;color:#fff}
+ .btn{display:inline-block;background:#eef2ff;color:#2b6cff;text-decoration:none;padding:9px 14px;border-radius:8px;font-size:14px}
+ label{font-size:14px}
+ .big{font-size:40px;font-weight:700;text-align:center;margin:8px 0;font-variant-numeric:tabular-nums}
+ .msg{color:#0a9d6e;font-size:13px;min-height:18px;margin-top:6px}
+</style></head>
+<body>
+<header>计时器 <a class="btn" style="float:right;font-size:13px" href="/">← 返回控制台</a></header>
+<div class="wrap">
+
+ <div class="card">
+  <h3>倒计时</h3>
+  <div class="row"><input type="text" id="down_label" placeholder="标签（如：煮面），可留空"></div>
+  <div class="row">
+   <span>时长</span>
+   <input type="number" id="down_h" value="0" min="0" max="99" placeholder="时" style="width:54px;padding:6px;border:1px solid #ccd;border-radius:6px;font-size:15px;text-align:center">
+   <span>:</span>
+   <input type="number" id="down_m" value="0" min="0" max="59" placeholder="分" style="width:54px;padding:6px;border:1px solid #ccd;border-radius:6px;font-size:15px;text-align:center">
+   <span>:</span>
+   <input type="number" id="down_s" value="0" min="0" max="59" placeholder="秒" style="width:54px;padding:6px;border:1px solid #ccd;border-radius:6px;font-size:15px;text-align:center">
+  </div>
+  <div class="row">
+   <label><input type="checkbox" id="down_rotate"> 继续轮换（后台运行）</label>
+   <label><input type="checkbox" id="down_sound" checked> 结束时响铃（嘚儿声，点屏关闭）</label>
+  </div>
+  <div class="row">
+   <button onclick="startDown()">开始倒计时</button>
+   <button class="btnr" onclick="stopDown()">停止</button>
+  </div>
+  <div class="row"><span id="down_status" style="color:#8a93a2">未开始</span></div>
+ </div>
+
+ <div class="card">
+  <h3>屏幕显示</h3>
+  <div class="row">
+   <button class="btnw" onclick="convertTo('down')">倒计时切到屏幕</button>
+  </div>
+  <div style="font-size:12px;color:#8a93a2;margin-top:6px">倒计时在后台运行时，点此切到屏幕优先显示；轮换中点屏也可看一眼倒计时（再点回轮换）。</div>
+ </div>
+</div>
+<script>
+function pad(n){n=parseInt(n||0,10);return (n<10?'0':'')+n;}
+function fmt(sec){sec=Math.max(0,parseInt(sec||0,10));var h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),x=sec%60;if(h>0)return h+':'+pad(m)+':'+pad(x);return pad(m)+':'+pad(x);}
+function toSec(h,m,s){return (parseInt(document.getElementById(h).value||0,10)*3600)+(parseInt(document.getElementById(m).value||0,10)*60)+(parseInt(document.getElementById(s).value||0,10));}
+function setStatus(id,t){document.getElementById(id).textContent=t;}
+async function startDown(){
+  var label=document.getElementById('down_label').value;
+  var dur=toSec('down_h','down_m','down_s');
+  var rotate=document.getElementById('down_rotate').checked?'1':'0';
+  var sound=document.getElementById('down_sound').checked?'1':'0';
+  var body='timer_start=1&timer_label='+encodeURIComponent(label)+'&timer_duration='+dur+'&timer_rotate='+rotate+'&timer_sound='+sound;
+  try{var r=await fetch('/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body});setStatus('down_status',await r.text());}catch(e){setStatus('down_status','失败');}
+}
+async function postStop(mode,id){try{var r=await fetch('/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'timer_stop=1&timer_mode='+mode});setStatus(id,await r.text());}catch(e){setStatus(id,'停止失败');}}
+function stopDown(){postStop('down','down_status');}
+async function convertTo(mode){try{await fetch('/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'timer_convert=1&timer_mode='+mode});}catch(e){}}
+async function status(){
+  try{
+    var r=await fetch('/timer_api',{cache:'no-store'});var s=await r.json();
+    var dn=s.down;
+    if(dn&&dn.active){var t2='倒计时 · '+(dn.label||'');if(dn.finished)t2+='（已到时）';setStatus('down_status',t2+'  '+fmt(dn.remain));}
+    else setStatus('down_status','未开始');
+  }catch(e){}
+}
+status();setInterval(status,1000);
+</script>
+</body>
+</html>

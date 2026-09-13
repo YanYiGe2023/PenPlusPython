@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>闹钟</title>
+<style>
+ *{box-sizing:border-box} body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:#f5f6f8;color:#222}
+ header{background:#2b6cff;color:#fff;padding:14px 16px;font-size:17px;font-weight:600}
+ .wrap{max-width:720px;margin:0 auto;padding:14px}
+ .card{background:#fff;border:1px solid #e6e8ec;border-radius:12px;padding:12px 14px;margin-top:12px}
+ h3{margin:0 0 8px;font-size:15px;color:#2b6cff}
+ .row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center}
+ button{border:0;border-radius:10px;padding:9px 13px;font-size:14px;background:#2b6cff;color:#fff;cursor:pointer}
+ .btnw{background:#fff;color:#2b6cff;border:1px solid #2b6cff}
+ .btnr{background:#ff5b5b}
+ a.btn{display:inline-block;text-decoration:none;background:#fff;color:#2b6cff;border:1px solid #2b6cff;border-radius:10px;padding:9px 13px;font-size:14px}
+ .ar{display:flex;gap:8px;align-items:center;padding:10px;margin-top:8px;border:1px solid #e6e8ec;border-radius:10px;flex-wrap:wrap}
+ .ar input[type=time]{padding:6px;border:1px solid #ccd;border-radius:6px;font-size:15px}
+ .ar input[type=text]{flex:1;min-width:120px;padding:6px;border:1px solid #ccd;border-radius:6px;font-size:14px}
+ .wd{font-size:12px;color:#555}
+ .msg{color:#0a9d6e;font-size:13px;min-height:18px;margin-top:6px}
+</style></head>
+<body>
+<header>闹钟 <a class="btn" style="float:right;font-size:13px" href="/">← 返回控制台</a></header>
+<div class="wrap">
+ <div class="card" id="ringCard" style="display:none">
+  <h3 style="color:#e0392b">闹钟响铃中</h3>
+  <div id="ringLabel" style="font-size:18px;font-weight:600"></div>
+  <div class="row"><button class="btnr" onclick="dismiss()">停止（也可点击屏幕关闭）</button></div>
+ </div>
+ <div class="card">
+  <h3>闹钟列表</h3>
+  <div id="list"></div>
+  <div class="row" style="margin-top:10px">
+   <button class="btnw" onclick="addRow()">+ 添加闹钟</button>
+   <button onclick="save()">保存</button>
+  </div>
+  <div id="msg" class="msg"></div>
+ </div>
+</div>
+<script>
+var WD=['一','二','三','四','五','六','日'];
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+function rowHTML(a,idx){
+  var rep=a.repeat||[];
+  var wd='';
+  for(var i=0;i<7;i++){wd+='<label class="wd"><input type="checkbox" data-k="rep" data-i="'+i+'"'+(rep.indexOf(i)>=0?' checked':'')+'>'+WD[i]+'</label>';}
+  return '<div class="ar" data-idx="'+idx+'">'
+    +'<input type="time" data-k="time" value="'+esc(a.time)+'">'
+    +'<input type="text" data-k="label" placeholder="标签(可选)" value="'+esc(a.label)+'">'
+    +'<label class="wd"><input type="checkbox" data-k="enabled"'+(a.enabled?' checked':'')+'>启用</label>'
+    +'<span class="wd">重复:'+wd+'</span>'
+    +'<button class="btnr" onclick="delRow('+idx+')">删除</button>'
+    +'</div>';
+}
+var ALARMS=[];
+function render(){var h='';for(var i=0;i<ALARMS.length;i++){h+=rowHTML(ALARMS[i],i);}if(!ALARMS.length)h='<p style="color:#8a93a2">还没有闹钟，点“添加闹钟”。</p>';document.getElementById('list').innerHTML=h;}
+function addRow(){ALARMS.push({id:Date.now(),time:'08:00',enabled:true,label:'',repeat:[]});render();}
+function delRow(i){ALARMS.splice(i,1);render();}
+function collect(){var rows=document.querySelectorAll('#list .ar');var out=[];rows.forEach(function(r){var o={};var t=r.querySelector('[data-k=time]');o.time=t?t.value:'08:00';var l=r.querySelector('[data-k=label]');o.label=l?l.value:'';var e=r.querySelector('[data-k=enabled]');o.enabled=!!(e&&e.checked);var reps=[];r.querySelectorAll('[data-k=rep]').forEach(function(c){if(c.checked)reps.push(parseInt(c.getAttribute('data-i'),10));});o.repeat=reps;var id=r.getAttribute('data-idx');o.id=ALARMS[parseInt(id,10)]?ALARMS[parseInt(id,10)].id:Date.now();out.push(o);});return out;}
+async function load(){try{var r=await fetch('/alarm_api',{cache:'no-store'});ALARMS=await r.json();render();}catch(e){ALARMS=[];render();}}
+async function save(){var data=collect();try{var r=await fetch('/alarm_api',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'alarms='+encodeURIComponent(JSON.stringify(data))});msg(await r.text());}catch(e){msg('保存失败');}}
+function msg(t){var m=document.getElementById('msg');m.textContent=t;setTimeout(function(){m.textContent='';},4000);}
+async function status(){try{var r=await fetch('/alarm_status',{cache:'no-store'});var s=await r.json();var c=document.getElementById('ringCard');if(s.active){c.style.display='block';document.getElementById('ringLabel').textContent=(s.label||'闹钟')+'  '+s.time;}else{c.style.display='none';}}catch(e){}}
+async function dismiss(){try{await fetch('/alarm_dismiss',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'alarm_dismiss=1'});}catch(e){}}
+load();status();setInterval(status,2000);
+</script>
+</body>
+</html>

@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>词典笔控制台</title>
+<style>
+ *{box-sizing:border-box} body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:#f5f6f8;color:#222}
+ header{background:#2b6cff;color:#fff;padding:14px 16px;font-size:17px;font-weight:600;display:flex;align-items:center;justify-content:space-between}
+ #status{font-size:12px;font-weight:400;opacity:.92}
+ #dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#7CFFB2;margin-right:5px;vertical-align:middle}
+ .wrap{max-width:720px;margin:0 auto;padding:14px}
+ .card{background:#fff;border:1px solid #e6e8ec;border-radius:12px;padding:12px 14px;margin-top:12px}
+ .card h3{margin:0 0 8px;font-size:15px;color:#2b6cff}
+ .row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center}
+ button{border:0;border-radius:10px;padding:10px 14px;font-size:14px;background:#2b6cff;color:#fff;cursor:pointer}
+ .btnw{background:#fff;color:#2b6cff;border:1px solid #2b6cff}
+ .btnr{background:#ff5b5b}
+ a.btn{display:inline-block;text-decoration:none;background:#fff;color:#2b6cff;border:1px solid #2b6cff;border-radius:10px;padding:10px 14px;font-size:14px}
+ .item{background:#fff;border:1px solid #e6e8ec;border-radius:12px;padding:10px 12px;margin-top:10px}
+ .ts{color:#8a93a2;font-size:12px;margin-bottom:4px}
+ pre{white-space:pre-wrap;word-break:break-word;margin:0;font-size:15px;font-family:inherit}
+ .empty{color:#8a93a2;text-align:center;margin-top:30px}
+ .msg{color:#0a9d6e;font-size:13px;min-height:18px;margin-top:6px}
+ .sub{font-size:12px;color:#6b7585;font-weight:600;margin-top:12px;padding-left:8px;border-left:3px solid #cdd6e6}
+ .section{border:1px solid #c9d6ff}
+</style></head>
+<body>
+<header>词典笔控制台 <span id="status"><span id="dot"></span><span id="ts">连接中…</span></span></header>
+<div class="wrap">
+ <div class="card">
+  <h3>设备状态</h3>
+  <div id="dev">加载中…</div>
+ </div>
+ <div class="card">
+  <h3>天气 <button class="btnw" style="float:right;padding:4px 10px;font-size:12px" onclick="refreshWeather(true)">刷新</button></h3>
+  <div id="wx">加载中…</div>
+ </div>
+ <div class="card section">
+  <h3>轮换显示</h3>
+  <div class="row">
+   <a class="btn" href="/rotate">轮换显示页面 →</a>
+  </div>
+  <div style="font-size:12px;color:#8a93a2;margin-top:6px">勾选要轮换的内容（时间/天气/日期），每项单独设显示秒数，可设切换提示音。点上面进入设置页。</div>
+ </div>
+ <div class="card section">
+  <h3>屏幕控制（接管显示）</h3>
+
+  <div class="sub">显示模式</div>
+  <div class="row">
+   <button onclick="sact('clock')">全屏时钟</button>
+   <button class="btnw" onclick="sact('clear')">清屏</button>
+   <button class="btnw" onclick="sactq('flip_h')">左右镜像</button>
+   <button class="btnw" onclick="sactq('flip_v')">上下镜像</button>
+   <button class="btnr" onclick="sact('restore')">恢复词典笔</button>
+  </div>
+
+  <div class="sub">文字与颜色</div>
+  <div class="row" style="margin-top:8px">
+   <input id="txt" placeholder="输入要显示的文字（支持中英文/数字，可换行）" style="flex:1;padding:9px;border:1px solid #ccd;border-radius:8px">
+   <button onclick="showText()">显示文字</button>
+  </div>
+  <div class="row" style="align-items:center;margin-top:8px">
+   <label style="font-size:13px">文字颜色 <input type="color" id="fg" value="#ffffff"></label>
+   <label style="font-size:13px;margin-left:12px">背景颜色 <input type="color" id="bg" value="#000000"></label>
+   <button class="btnw" id="btnBold" onclick="toggleBold()" style="margin-left:12px">加粗：关</button>
+  </div>
+
+
+  <div class="sub">滚动（长文字）</div>
+  <div class="row" style="margin-top:8px;align-items:center">
+   <button class="btnw" id="btnScroll" onclick="toggleScroll()">滚动显示：关</button>
+   <label style="font-size:13px;margin-left:12px">滚动速度 px/秒
+     <input type="number" id="sspeed" value="55" min="5" max="400" style="width:62px;padding:5px;border:1px solid #ccd;border-radius:6px">
+   </label>
+   <button class="btnw" onclick="setScrollSpeed(document.getElementById('sspeed').value)">应用速度</button>
+  </div>
+
+  <div class="sub">位置与亮度</div>
+  <div class="row" style="align-items:center;margin-top:8px">
+   <label style="font-size:13px">垂直微调（正数上移/负数下移）
+     <input type="number" id="voff" value="0" style="width:62px;padding:5px;border:1px solid #ccd;border-radius:6px">
+   </label>
+   <button class="btnw" onclick="setVoff(document.getElementById('voff').value)">应用微调</button>
+   <button class="btnw" onclick="setVoff(0)">复位</button>
+  </div>
+  <div class="row" style="align-items:center;margin-top:8px">
+   <label style="font-size:13px">屏幕亮度(0~10)
+     <input type="number" id="bright" value="10" min="0" max="10" style="width:54px;padding:5px;border:1px solid #ccd;border-radius:6px">
+   </label>
+   <button class="btnw" onclick="setBright(document.getElementById('bright').value)">应用亮度</button>
+  </div>
+
+  <div class="sub">声音测试</div>
+  <div class="row" style="margin-top:8px">
+   <button onclick="sact('sound')">测试声音</button>
+  </div>
+
+  <div id="smsg" class="msg"></div>
+  <div style="font-size:12px;color:#8a93a2;margin-top:6px">说明：叠加绘制+PAN上屏，不动主程序、不碰看门狗。方向不对点“左右/上下镜像”实时调正。改颜色后需重新点“显示文字”或“全屏时钟”生效。亮度立即生效并保持。</div>
+ </div>
+
+ <div class="card section">
+  <h3>闹钟</h3>
+  <div class="row">
+   <a class="btn" href="/alarm">闹钟设置 →</a>
+  </div>
+  <div style="font-size:12px;color:#8a93a2;margin-top:6px">设置闹钟后，到点循环响“嘚儿”声并在屏幕提示，点屏幕任意处即可关闭。</div>
+ </div>
+
+ <div class="card section">
+  <h3>倒计时 &amp; 消息投送</h3>
+  <div class="row">
+   <a class="btn" href="/timer">倒计时 →</a>
+   <a class="btn" href="/message">手机消息投送到屏 →</a>
+  </div>
+  <div style="font-size:12px;color:#8a93a2;margin-top:6px">倒计时结束时循环“嘚儿”声提醒，点屏或网页可关闭；消息可设显示秒数（0=手动关闭），点屏即关。</div>
+ </div>
+
+ <div class="card">
+  <h3>设备操作</h3>
+  <div class="row">
+   <button onclick="act('restart')">重启服务</button>
+   <button class="btnw" onclick="act('clear')">清空文字台</button>
+   <button class="btnw" onclick="act('export_dict')">导出到生词本</button>
+   <button class="btnr" onclick="act('reboot')">重启设备</button>
+   <button class="btnr" onclick="act('poweroff')">关机</button>
+  </div>
+  <div id="msg" class="msg"></div>
+ </div>
+ <div class="card">
+  <h3>扫描文字台</h3>
+  <div id="list"></div>
+ </div>
+</div>
+<script>
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function fmt(d){return d.toLocaleTimeString('zh-CN',{hour12:false});}
+async function refresh(){try{var r=await fetch('/content?_='+Date.now(),{cache:'no-store'});document.getElementById('list').innerHTML=await r.text();var d=document.getElementById('dot');if(d)d.style.background='#7CFFB2';var t=document.getElementById('ts');if(t)t.textContent='已更新 '+fmt(new Date());}catch(e){var d=document.getElementById('dot');if(d)d.style.background='#ff6b6b';var t=document.getElementById('ts');if(t)t.textContent='连接中断，重试中…';}}
+async function refreshStatus(){try{var r=await fetch('/status?_='+Date.now(),{cache:'no-store'});document.getElementById('dev').innerHTML=await r.text();}catch(e){}}
+async function refreshWeather(force){
+  if(force){
+    try{await fetch('/weather_refresh',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'weather_refresh=1'});}catch(e){}
+  }
+  try{
+    var r=await fetch('/weather_api?_='+Date.now(),{cache:'no-store'});
+    var j=await r.json();
+    var d=j.data||{};
+    var el=document.getElementById('wx');
+    if(d.error){el.innerHTML='<span style="color:#ff5b5b">天气获取失败：'+esc(String(d.error))+'</span>';return;}
+    if(d.loading){el.textContent='天气加载中…';return;}
+    var ts=j.t?new Date(j.t*1000).toLocaleTimeString('zh-CN',{hour12:false}):'';
+    el.innerHTML='<div style="font-size:30px;font-weight:700">'+esc(d.temp!=null?Math.round(d.temp)+'°':'--')+' <span style="font-size:16px;font-weight:400;color:#555">'+esc(d.desc||'')+'</span></div>'+
+      '<div style="font-size:13px;color:#8a93a2;margin-top:4px">'+esc(j.city||'')+(ts?' · 更新于 '+ts:'')+'</div>';
+  }catch(e){document.getElementById('wx').textContent='连接中断';}
+}
+async function act(cmd){if(cmd!=='clear'&&!confirm('确定执行：'+cmd+'？'))return;try{var r=await fetch('/action',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'cmd='+encodeURIComponent(cmd)});var t=await r.text();var m=document.getElementById('msg');if(m){m.textContent=t;setTimeout(function(){m.textContent='';},4000);}}catch(e){}}
+async function sact(a){var fg=document.getElementById('fg').value;var bg=document.getElementById('bg').value;var body='screen='+encodeURIComponent(a)+'&fg='+encodeURIComponent(fg)+'&bg='+encodeURIComponent(bg);if(!confirm('屏幕操作：'+a+'？'))return;sactpost(body);}
+async function sactq(a){var fg=document.getElementById('fg').value;var bg=document.getElementById('bg').value;var body='screen='+encodeURIComponent(a)+'&fg='+encodeURIComponent(fg)+'&bg='+encodeURIComponent(bg);sactpost(body);}
+async function showText(){var t=document.getElementById('txt').value;var fg=document.getElementById('fg').value;var bg=document.getElementById('bg').value;var body='screen=text&text='+encodeURIComponent(t)+'&fg='+encodeURIComponent(fg)+'&bg='+encodeURIComponent(bg);sactpost(body);}
+async function sactpost(body){try{var r=await fetch('/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body});var x=await r.text();var m=document.getElementById('smsg');if(m){m.textContent=x;setTimeout(function(){m.textContent='';},5000);}}catch(e){}}
+var _pen_bold=false,_pen_scroll=false;
+function toggleBold(){_pen_bold=!_pen_bold;var b=document.getElementById('btnBold');b.textContent='加粗：'+(_pen_bold?'开':'关');screenAdj('bold',_pen_bold?1:0);}
+function toggleScroll(){_pen_scroll=!_pen_scroll;var b=document.getElementById('btnScroll');b.textContent='滚动显示：'+(_pen_scroll?'开':'关');screenAdj('scroll',_pen_scroll?1:0);}
+async function setVoff(v){var r=await fetch('/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'screen=voff&voff='+encodeURIComponent(v)});var m=document.getElementById('smsg');if(m){m.textContent=await r.text();setTimeout(function(){m.textContent='';},5000);}}
+async function setScrollSpeed(v){var r=await fetch('/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'screen=scroll_speed&scroll_speed='+encodeURIComponent(v)});var m=document.getElementById('smsg');if(m){m.textContent=await r.text();setTimeout(function(){m.textContent='';},5000);}}
+async function setBright(v){var r=await fetch('/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'screen=brightness&brightness='+encodeURIComponent(v)});var m=document.getElementById('smsg');if(m){m.textContent=await r.text();setTimeout(function(){m.textContent='';},5000);}}
+async function screenAdj(k,v){var r=await fetch('/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'screen='+k+'&'+k+'='+encodeURIComponent(v)});var m=document.getElementById('smsg');if(m){m.textContent=await r.text();setTimeout(function(){m.textContent='';},5000);}}
+refresh();refreshStatus();refreshWeather();setInterval(refresh,3000);setInterval(refreshStatus,5000);setInterval(refreshWeather,15000);
+</script>
+</body>
+</html>
